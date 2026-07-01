@@ -1,13 +1,13 @@
 import json
-
-import tqdm
-from bs4 import BeautifulSoup
+import time
 import requests
+import concurrent.futures
+from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-class Pokemon(object):
 
-    def __init__(self, name, mega=False, variant=False, variant_det = None):
+class Pokemon(object):
+    def __init__(self, name, mega=False, variant=False, variant_det=None):
         self.name = name
         self.mega = mega
         self.variant = variant
@@ -21,6 +21,7 @@ def get_gens(dex):
     gens = [[gen['name'], gen['shorthand'].lower()] for gen in dex[0][1]]
     return gens
 
+
 def get_dex(poke_list):
     dex = []
     for p in poke_list:
@@ -29,64 +30,82 @@ def get_dex(poke_list):
             variant_det = ' '.join(poke_name.split('-')[1:])
             poke_name = poke_name.split('-')[0]
             variant = True
-            mega = False
-            if 'Mega' in variant_det:
-                mega = True
+            mega = 'Mega' in variant_det
             dex.append(Pokemon(poke_name, mega=mega, variant=variant, variant_det=variant_det))
         else:
             dex.append(Pokemon(poke_name))
     return dex
 
-def get_dex_from_url(url):
-    response = requests.get(url)
+
+def get_dex_data(url, pbar, chunk_size):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(requests.get, url)
+
+        current_chunk_progress = 0
+        max_simulated = chunk_size * 0.95
+
+        while not future.done():
+            step = (max_simulated - current_chunk_progress) / 10
+
+            if step > 0.05:
+                safe_step = max(0, min(step, pbar.total - pbar.n))
+                if safe_step > 0:
+                    current_chunk_progress += safe_step
+                    pbar.update(safe_step)
+
+            time.sleep(0.1)
+
+        response = future.result()
+        remaining = chunk_size - current_chunk_progress
+
+        safe_remaining = max(0, min(remaining, pbar.total - pbar.n))
+        if safe_remaining > 0:
+            pbar.update(safe_remaining)
+
     html = response.text
     parser = BeautifulSoup(html, 'html.parser')
-    other_gens = parser.find_all('script')
-    for script in other_gens:
+    for script in parser.find_all('script'):
         if "injectRpcs" in script.text:
             return json.loads(script.text[14:])['injectRpcs']
     return None
 
 
-def get_smogon_formats_and_main_list():
-    dex = get_dex_from_url("https://www.smogon.com/dex/")
+def get_all_dexes():
     dexes = {}
+
+    pbar = tqdm(
+        total=100,
+        desc="Downloading...",
+        bar_format="{desc}: {percentage:3.0f}%|{bar}| {unit}]",
+        colour="white"
+    )
+
+    pbar.unit = "Initialisation"
+    dex = get_dex_data("https://www.smogon.com/dex/", pbar, chunk_size=10.0)
+
     gens = get_gens(dex)
     default_gen = json.loads(dex[1][0])[1]['gen']
     poke_list = dex[1][1]['pokemon']
-    poke_dex = get_dex(poke_list)
-    dexes[default_gen] = poke_dex
-    return gens, default_gen, dexes
+    dexes[default_gen] = get_dex(poke_list)
 
-def get_gen_list(gen):
-    dex = get_dex_from_url(f"https://www.smogon.com/dex/{gen}/pokemon")
-    poke_list = dex[1][1]['pokemon']
-    poke_dex = get_dex(poke_list)
-    return poke_dex
+    remaining_gens = [g for g in gens if g[1] != default_gen]
 
-def get_all_dexes():
-    gens, default_gen, dexes = get_smogon_formats_and_main_list()
-    pbar = tqdm(gens)
-    pbar.set_description(f"Fetching generations and processing {default_gen}")
-    for gen in pbar:
-        if gen[1] == default_gen:
-            continue
-        dexes[gen[1]] = get_gen_list(gen[1])
-        pbar.set_description(f"Processing {gen[0]}")
+    chunk_per_gen = 90.0 / len(remaining_gens)
+
+    for gen in remaining_gens:
+        gen_name, gen_shorthand = gen
+        pbar.unit = f"{gen_name}"
+
+        gen_dex_data = get_dex_data(f"https://www.smogon.com/dex/{gen_shorthand}/pokemon", pbar,
+                                    chunk_size=chunk_per_gen)
+        if gen_dex_data:
+            gen_poke_list = gen_dex_data[1][1]['pokemon']
+            dexes[gen_shorthand] = get_dex(gen_poke_list)
+
+    pbar.unit = "Done !"
+    pbar.close()
     return dexes, gens
 
 
-
-def get_name(n):
-    url = "https://pokeapi.co/api/v2/pokemon/{}".format(n)
-    response = requests.get(url)
-    return response.json()['name']
-
-def get_dex_number(name):
-    url = "https://pokeapi.co/api/v2/pokemon/{}".format(name)
-    response = requests.get(url)
-    return response.json()['number']
-
-
 if __name__ == '__main__':
-    get_all_dexes()
+    all_dexes, all_gens = get_all_dexes()

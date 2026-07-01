@@ -1,6 +1,3 @@
-import argparse
-import os
-import sys
 import webbrowser
 from random import choice, sample
 
@@ -14,12 +11,13 @@ VERSION = 0.1
 if __name__ == '__main__':
 
     dexes, gens = get_all_dexes()
+    gens_dict = dict(gens)
 
     questions = [
         {
             "type": "list",
             "message": "Which generation?",
-            "choices": map(lambda x: x[0], gens),
+            "choices": [g[0] for g in gens],
             "multiselect": False,
             "name": "gen"
         },
@@ -33,7 +31,7 @@ if __name__ == '__main__':
     ]
 
     result = prompt(questions)
-    gen = list(filter(lambda x: x[0] == result["gen"], gens))[0][1]
+    gen = gens_dict[result["gen"]]
     mode = result["mode"]
     dex = dexes[gen]
 
@@ -45,8 +43,8 @@ if __name__ == '__main__':
                 dex.remove(drawn)
                 choices.append(drawn)
             for i, c in enumerate(choices):
-                print(f"{'1st' if i == 0 else ('2nd' if i == 1 else ('3rd' if i == 3 else str(i)+'th'))} choice is : {c.name}")
-                if c.variant:
+                print(f"{'1st' if i == 0 else ('2nd' if i == 1 else ('3rd' if i == 2 else str(i)+'th'))} choice is : {c.name}")
+                if c.variant and not c.mega:
                     print(f"/!\\ {c.name} is a variant : {c.variant_det}")
                 if c.mega:
                     print(f"/!\\ {c.name} is a mega !")
@@ -56,7 +54,7 @@ if __name__ == '__main__':
         pokes = sample(dex, k=10)
         for poke in pokes:
             webbrowser.open_new_tab('https://bulbapedia.bulbagarden.net/wiki/'+poke.name)
-            if poke.variant:
-                print(f"/!\\ {poke.name} is a variant : {poke.variant_details}")
+            if poke.variant and not poke.mega:
+                print(f"/!\\ {poke.name} is a variant : {poke.variant_det}")
             if poke.mega:
                 print(f"/!\\ {poke.name} is a mega !")
