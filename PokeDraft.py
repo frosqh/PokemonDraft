@@ -67,7 +67,6 @@ if __name__ == '__main__':
             "name": "mode"
         },
     ]
-
     result = prompt(questions)
     gen = gens_dict[result["gen"]]
     mode = result["mode"]
@@ -83,6 +82,7 @@ if __name__ == '__main__':
                 choices.append(drawn)
             team_choices.append(choices)
             print_choices(team_choices)
+            os.system("cls")
             for c in choices:
                 webbrowser.open_new_tab('https://bulbapedia.bulbagarden.net/wiki/' + c.name)
             questions = [
@@ -95,6 +95,7 @@ if __name__ == '__main__':
                 },
             ]
             while True:
+                os.system("cls")
                 result = prompt(questions)
                 if result["reroll"] == ["Continue"]:
                     break
