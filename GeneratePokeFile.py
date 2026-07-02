@@ -14,7 +14,10 @@ class Pokemon(object):
         self.variant_det = variant_det
 
     def __str__(self):
-        return f"{'Mega ' if self.mega else ''}| {self.name}| {self.variant_det if self.variant and not self.mega else ''}"
+        return f"{'Mega ' if self.mega else ''}{self.name}{" - " + self.variant_det if self.variant and not self.mega else ''}"
+
+    def __len__(self):
+        return len(self.__str__())
 
 
 def get_gens(dex):
@@ -25,6 +28,8 @@ def get_gens(dex):
 def get_dex(poke_list):
     dex = []
     for p in poke_list:
+        if p["isNonstandard"] not in ["Standard", "NatDex"]:
+            continue
         poke_name = p['name']
         if '-' in poke_name:
             variant_det = ' '.join(poke_name.split('-')[1:])
