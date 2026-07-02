@@ -21,6 +21,7 @@ def complete_space(s, l):
     return s
 
 def print_choices(tab):
+    os.system("cls")
     lengths = [max(len("1st Pokémon"),max([len(y)+2 for y in x])) for x in tab]
     titles = []
     title_lengths = []
@@ -82,7 +83,6 @@ if __name__ == '__main__':
                 choices.append(drawn)
             team_choices.append(choices)
             print_choices(team_choices)
-            os.system("cls")
             for c in choices:
                 webbrowser.open_new_tab('https://bulbapedia.bulbagarden.net/wiki/' + c.name)
             questions = [
@@ -95,7 +95,6 @@ if __name__ == '__main__':
                 },
             ]
             while True:
-                os.system("cls")
                 result = prompt(questions)
                 if result["reroll"] == ["Continue"]:
                     break
